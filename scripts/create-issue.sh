@@ -15,17 +15,51 @@ echo "Directory contents: $DIR_CONTENTS"
 # Using || true to ensure the script continues even if lake build fails
 BUILD_OUTPUT=$(lake build --log-level=warning 2>&1 || true)
 
-# Create the body of the issue
-BODY="$DESCRIPTION
+# Create the body of the issue with safe truncation for GitHub limits
+# GitHub issue body limit is 65536 characters. Keep a small safety margin.
+MAX_BODY=65500
+
+# Build body parts so we can truncate primarily within the build output section
+PREFIX="$DESCRIPTION
 
 Files changed in update:$BULLET_LIST
 
 ## Build Output
 
-\`\`\`
-$BUILD_OUTPUT
-\`\`\`
-"
+\`\`\`"
+SUFFIX="\n\`\`\`"
+TRUNCATION_NOTICE="\n...\n[truncated to fit GitHub issue body limit]\n"
+
+prefix_len=${#PREFIX}
+suffix_len=${#SUFFIX}
+notice_len=${#TRUNCATION_NOTICE}
+remaining=$((MAX_BODY - prefix_len - suffix_len))
+
+if [ $remaining -le 0 ]; then
+  # Prefix alone is too large; omit code block and hard-truncate the overall body
+  BASE="$DESCRIPTION
+
+Files changed in update:$BULLET_LIST
+
+(omitted build output due to size)"
+  if [ ${#BASE} -gt $MAX_BODY ]; then
+    BODY="${BASE:0:$((MAX_BODY-3))}..."
+  else
+    BODY="$BASE"
+  fi
+else
+  # Prefer truncating within the build output section
+  if [ ${#BUILD_OUTPUT} -gt $remaining ]; then
+    allow=$((remaining - notice_len))
+    if [ $allow -lt 0 ]; then
+      allow=0
+    fi
+    TRUNCATED_OUTPUT="${BUILD_OUTPUT:0:$allow}$TRUNCATION_NOTICE"
+    BODY="$PREFIX\n$TRUNCATED_OUTPUT$SUFFIX"
+  else
+    BODY="$PREFIX\n$BUILD_OUTPUT$SUFFIX"
+  fi
+fi
 
 # Check if the label exists, create it if not
 if ! gh api repos/$GH_REPO/labels/$LABEL_NAME --silent 2>/dev/null; then
