@@ -1,11 +1,18 @@
 import * as core from '@actions/core';
 
-async function run() {
-  try {
-    core.info("Hello World");
-  } catch (error: any) {
-    core.setFailed(error.message);
-  }
+/** 最新の Lean リリースを取得する
+ *
+ * @paarm {Boolean} stable - trueならrcが付かない安定版リリースだけを取得する
+ * @returns v4.23.0 または v4.22.0-rc2 のような形式の文字列
+ */
+function getLatestRelease (stable : boolean) : string {
+  return "hello"
+}
+
+function run() {
+  const legacy_update = core.getInput("legacy_update");
+  core.info("Hello World");
+  core.info(`legacy_update: ${legacy_update}`)
 }
 
 run();

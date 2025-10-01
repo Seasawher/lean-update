@@ -17,3 +17,5 @@ jobs:
         uses: actions/checkout@v5
       - name: test
         uses: ./
+        with:
+          legacy_update: true
