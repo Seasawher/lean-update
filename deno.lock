@@ -1,7 +1,8 @@
 {
   "version": "5",
   "specifiers": {
-    "npm:@actions/core@^1.11.1": "1.11.1"
+    "npm:@actions/core@^1.11.1": "1.11.1",
+    "npm:semver-ts@^1.0.3": "1.0.3"
   },
   "npm": {
     "@actions/core@1.11.1": {
@@ -30,6 +31,9 @@
     "@fastify/busboy@2.1.1": {
       "integrity": "sha512-vBZP4NlzfOlerQTnba4aqZoMhE/a9HY7HRqoOPaETQcSQuWEIyZMHGfVu6w9wGtGK5fED5qRs2DteVCjOH60sA=="
     },
+    "semver-ts@1.0.3": {
+      "integrity": "sha512-RMf2+Nbd0Hiq5u8LADzqnSRb09Vu1UKOLFw9P9nm8XY3JPeFjv3DLVYBZjPWFHUxBVz7ktIVGR3xFjYilHlXng=="
+    },
     "tunnel@0.0.6": {
       "integrity": "sha512-1h/Lnq9yajKY2PEbBadPXj3VxsDDu844OnaAo52UVmIzIvwwtBPIuNvkjuzBlTWpfJyUbG3ez0KSBibQkj4ojg=="
     },
@@ -42,7 +46,8 @@
   },
   "workspace": {
     "dependencies": [
-      "npm:@actions/core@^1.11.1"
+      "npm:@actions/core@^1.11.1",
+      "npm:semver-ts@^1.0.3"
     ]
   }
 }
