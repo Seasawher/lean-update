@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "@actions/core": "npm:@actions/core@^1.11.1",
+    "semver-ts": "npm:semver-ts@^1.0.3"
+  }
+}

@@ -1,9 +1,10 @@
 name: "Lean update"
 description: "Attempts to update lean and dependencies of a lean project"
 author: "Oliver Butterley, Asei Inoue(Seasawher)"
+
 inputs:
   on_update_succeeds:
-    description: | # markdown
+    description: |
       What to do when an update is available and the build is successful.
       Allowed values:
         * `silent`: Do nothing
@@ -14,7 +15,7 @@ inputs:
     required: false
     default: "pr"
   on_update_fails:
-    description: | # markdown
+    description: |
       What to do when an update is available and the build fails.
       Allowed values:
         * `silent`: Do nothing
@@ -24,7 +25,7 @@ inputs:
     required: false
     default: "issue"
   update_if_modified:
-    description: | # markdown
+    description: |
       Specifies which files, when updated during `lake update`, will cause the action to update code or notify the user.
       This option does not affect the behavior when the build/test/lint fail after `lake update`.
       Allowed values:
@@ -66,9 +67,10 @@ inputs:
       A Github token to be used for committing
     required: false
     default: ${{ github.token }}
+
 outputs:
   result:
-    description: | # markdown
+    description: |
       The action outputs `no-update`, `update-success` or `update-fail` depending on the three possible scenarios.
 
       Description of each value:
@@ -77,209 +79,31 @@ outputs:
         * `update-fail`: An update was available but the lean-action step failed.
     value: ${{ steps.record-result.outputs.outcome }}
   latest_lean:
-    description: | # markdown
+    description: |
       The latest Lean release version, including both stable and pre-release versions.
     value: ${{ steps.record-latest-lean.outputs.latest_lean }}
   notify:
-    description: | # markdown
+    description: |
       Indicates whether there is an event worth notifying the user about.
       Returns `true` in the following cases:
         * When updates are available and the build succeeds. However, if `update_if_modified` is set to `lean-toolchain`, this is only true when the Lean version has been updated.
         * When updates are available and the build fails.
       Returns `false` in all other cases.
     value: ${{ steps.record-notify.outputs.notify }}
+
 runs:
   using: "composite"
   steps:
-    - name: find dependencies
-      id: find-dependencies
-      run: |
-        node ${{ github.action_path }}/scripts/findDependencies.js
-      shell: bash
-      working-directory: ${{ inputs.lake_package_directory }}
-
-    - name: Update lean-toolchain
-      if: ${{ steps.find-dependencies.outputs.outcome == 'no-depencency' && inputs.update_lean_toolchain == 'auto' }}
-      run: |
-        : Update lean-toolchain
-        node ${{ github.action_path }}/scripts/getLatest.js
+    - name: Setup Deno
+      uses: denoland/setup-deno@v1
+      with:
+        deno-version: v2.5.2
+    - name: Deno Run
       env:
+        LEGACY_UPDATE: ${{ inputs.legacy_update }}
+        LAKE_PACKAGE_DIRECTORY: ${{ inputs.lake_package_directory }}
         GH_TOKEN: ${{ github.token }}
-      shell: bash
-      working-directory: ${{ inputs.lake_package_directory }}
-
-    - name: Install elan
-      run: |
-        : Install elan
-        curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y
-        echo "$HOME/.elan/bin" >> $GITHUB_PATH
-      shell: bash
-
-    - name: Update dependencies of ${{ github.repository }}
-      run: | #bat
-        : Update dependencies
-        if [ "${{ inputs.legacy_update }}" == "true" ]; then
-          echo "Using legacy update command"
-          lake -R -Kenv=dev update
-        else
-          echo "Using standard update command"
-          lake update
-        fi
-      shell: bash
-      working-directory: ${{ inputs.lake_package_directory }}
-
-    - name: Check if lean-toolchain or lake-manifest.json were updated
-      id: check-update
-      run: |
-        : Check if lean-toolchain or lake-manifest.json were updated
-        node ${{ github.action_path }}/scripts/checkChanges.js
-      env:
-        UPDATE_IF_MODIFIED: ${{ inputs.update_if_modified }}
-      shell: bash
-      working-directory: ${{ inputs.lake_package_directory }}
-
-    - name: Try to build lean if something was updated
-      if: steps.check-update.outputs.files_changed == 'true'
-      id: build-lean
-      continue-on-error: true
-      uses: leanprover/lean-action@v1
-      with:
-        build-args: ${{ inputs.build_args }}
-        lake-package-directory: ${{ inputs.lake_package_directory }}
-
-    # -------------------------------- #
-    # record the output of this action #
-    # -------------------------------- #
-    - name: Record the outcome
-      id: record-result
-      run: | # bat
-        : Record the outcome
-        if [ "${{ steps.check-update.outputs.files_changed }}" == "false" ]; then
-          echo "No update available"
-          echo "outcome=no-update" >> $GITHUB_OUTPUT
-        elif [ "${{ steps.build-lean.outcome }}" == "success" ]; then
-          echo "Update available and build successful"
-          echo "outcome=update-success" >> $GITHUB_OUTPUT
-        elif [ "${{ steps.build-lean.outcome }}" == "failure" ]; then
-          echo "Update available but build fails"
-          echo "outcome=update-fail" >> $GITHUB_OUTPUT
-        fi
-      shell: bash
-
-    - name: Record the latest Lean version
-      id: record-latest-lean
-      run: | #bat
-        : Record the latest Lean version
-        LEAN_VERSION=$(cat lean-toolchain | sed 's/leanprover\/lean4://')
-        echo "Latest Lean release is: $LEAN_VERSION"
-        echo "latest_lean=$LEAN_VERSION" >> $GITHUB_OUTPUT
-      shell: bash
-      working-directory: ${{ inputs.lake_package_directory }}
-
-    - name: Record the notify status
-      id: record-notify
-      run: | #bat
-        : Record the notify status
-        if [ "${{ steps.check-update.outputs.files_changed }}" == "false" ]; then
-          echo "No updates available, no need to notify"
-          echo "notify=false" >> $GITHUB_OUTPUT
-        elif [ "${{ steps.build-lean.outcome }}" == "success" ] && [ "${{ steps.check-update.outputs.do_update }}" == "true" ]; then
-          echo "Updates available and build successful - should notify"
-          echo "notify=true" >> $GITHUB_OUTPUT
-        elif [ "${{ steps.build-lean.outcome }}" == "failure" ]; then
-          echo "Updates available but build failed - should notify"
-          echo "notify=true" >> $GITHUB_OUTPUT
-        else
-          echo "No need to notify in this case"
-          echo "notify=false" >> $GITHUB_OUTPUT
-        fi
-      shell: bash
-
-    # ------------------------- #
-    # when update is successful #
-    # ------------------------- #
-    - name: Open PR if the updated lean build was successful
-      if: steps.build-lean.outcome == 'success' &&
-          inputs.on_update_succeeds == 'pr' &&
-          steps.check-update.outputs.do_update == 'true' &&
-          steps.check-update.outputs.lean_toolchain_updated == 'true'
-      uses: peter-evans/create-pull-request@v7
-      with:
-        title: "Updates available and ready to merge"
-        body: |
-          The `lean-toolchain` file has been updated to the following version:
-          ```
-          ${{ steps.record-latest-lean.outputs.latest_lean }}
-          ```
-        delete-branch: true
-        branch: auto-update-lean/patch
-        labels: "auto-update-lean"
-
-    - name: Open PR if the updated lean build was successful
-      if: steps.build-lean.outcome == 'success' &&
-          inputs.on_update_succeeds == 'pr' &&
-          steps.check-update.outputs.do_update == 'true' &&
-          steps.check-update.outputs.lean_toolchain_updated == 'false'
-      uses: peter-evans/create-pull-request@v7
-      with:
-        title: "Updates available and ready to merge"
-        body: ""
-        delete-branch: true
-        branch: auto-update-lean/patch
-        labels: "auto-update-lean"
-
-    - name: Open issue if the updated lean build was successful
-      if: steps.build-lean.outcome == 'success' && inputs.on_update_succeeds == 'issue' && steps.check-update.outputs.do_update == 'true'
-      run: | # bat
-        : Open issue if the updated lean build was successful
-        TITLE="Updates available and have been tested to build correctly"
-        DESCRIPTION=""
-        LABEL_NAME="auto-update-lean"
-        LABEL_COLOR="0E8A16"
-
-        source ${{ github.action_path }}/scripts/create-issue.sh
-      env:
-        # Could be best to use the default token here
-        GH_TOKEN: ${{ inputs.token }}
-        GH_REPO: ${{ github.repository }}
-        CHANGED_FILES: ${{ steps.check-update.outputs.changed_files }}
-      shell: bash
-      working-directory: ${{ inputs.lake_package_directory }}
-
-    - name: Commit update if the updated lean build was successful
-      if: steps.build-lean.outcome == 'success' && inputs.on_update_succeeds == 'commit' && steps.check-update.outputs.do_update == 'true'
-      uses: EndBug/add-and-commit@v9.1.4
-      with:
-        default_author: github_actions
-      env:
-        ON_UPDATE_SUCCEEDS: ${{ inputs.on_update_succeeds }}
-        DO_UPDATE: ${{ steps.check-update.outputs.do_update }}
-
-    # ----------------- #
-    # when update fails #
-    # ----------------- #
-    - name: Open issue if the updated lean build fails
-      if: steps.build-lean.outcome == 'failure' && inputs.on_update_fails == 'issue'
-      run: | # bat
-        : Open issue if the updated lean build fails
-        TITLE="Updates available but manual intervention required"
-        DESCRIPTION="Try \`lake update\` and then investigate why this update causes the lean build to fail."
-        LABEL_NAME="auto-update-lean-fail"
-        LABEL_COLOR="D73A4A"
-
-        source ${{ github.action_path }}/scripts/create-issue.sh
-      env:
-        GH_TOKEN: ${{ inputs.token }}
-        GH_REPO: ${{ github.repository }}
-        CHANGED_FILES: ${{ steps.check-update.outputs.changed_files }}
-      shell: bash
-      working-directory: ${{ inputs.lake_package_directory }}
-
-    - name: Action fails if the updated lean build fails
-      if: steps.build-lean.outcome == 'failure' && inputs.on_update_fails == 'fail'
-      run: |
-        : Action fails if the updated lean build fails
-        exit 1
+      run: deno run --quiet --allow-all main.ts
       shell: bash
 
 branding:
