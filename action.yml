@@ -102,6 +102,7 @@ runs:
       env:
         LEGACY_UPDATE: ${{ inputs.legacy_update }}
         LAKE_PACKAGE_DIRECTORY: ${{ inputs.lake_package_directory }}
+        GH_TOKEN: ${{ github.token }}
       run: deno run --quiet --allow-all main.ts
       shell: bash
 
