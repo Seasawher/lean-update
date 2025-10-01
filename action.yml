@@ -99,6 +99,9 @@ runs:
       with:
         deno-version: v2.5.2
     - name: Deno Run
+      env:
+        LEGACY_UPDATE: ${{ inputs.legacy_update }}
+        LAKE_PACKAGE_DIRECTORY: ${{ inputs.lake_package_directory }}
       run: deno run --quiet --allow-all main.ts
       shell: bash
 

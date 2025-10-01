@@ -9,12 +9,13 @@ function getLatestRelease (stable : boolean) : string {
   return "hello"
 }
 
+const LEGACY_UPDATE = Deno.env.get("LEGACY_UPDATE") ?? "";
+const LAKE_PACKAGE_DIRECTORY = Deno.env.get("LAKE_PACKAGE_DIRECTORY") ?? "";
+
 function run() {
-  const legacy_update = core.getInput("legacy_update");
-  const directory = core.getInput("lake_package_directory");
   core.info("Hello World");
-  core.info(`legacy_update: ${legacy_update}`);
-  core.info(`directory: ${directory}`);
+  core.info(`legacy_update: ${LEGACY_UPDATE}`);
+  core.info(`directory: ${LAKE_PACKAGE_DIRECTORY}`);
 }
 
 run();
